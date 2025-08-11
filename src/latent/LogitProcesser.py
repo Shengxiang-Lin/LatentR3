@@ -3,14 +3,12 @@ from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
 import math
 import numpy as np
 import torch
-
 from transformers.utils import add_start_docstrings
 
 
 def get_hash(x):
     x = [str(_) for _ in x]
     return '-'.join(x)
-
 
 def get_prefix_data(info_file, tokenizer):
     with open(info_file, 'r') as f:
@@ -34,7 +32,6 @@ def get_prefix_data(info_file, tokenizer):
             if hash_number not in hash_dict:
                 hash_dict[hash_number] = set()
             hash_dict[hash_number].add(ID[i])
-
     for key in hash_dict.keys():
         hash_dict[key] = list(hash_dict[key])
     return hash_dict
@@ -53,7 +50,6 @@ LOGITS_PROCESSOR_INPUTS_DOCSTRING = r"""
 """
 
 class PrefixConstrainedLogitsProcessor(LogitsProcessor):
-
     def __init__(self, prefix_allowed_tokens_fn: Callable[[int, torch.Tensor], List[int]], num_beams: int):
         self._prefix_allowed_tokens_fn = prefix_allowed_tokens_fn
         self._num_beams = num_beams
@@ -71,17 +67,14 @@ class PrefixConstrainedLogitsProcessor(LogitsProcessor):
                         f"of `prefix_allowed_tokens_fn` "
                     )
                 mask[batch_id * self._num_beams + beam_id, prefix_allowed_tokens] = 0
-
         scores_processed = scores + mask
         return scores_processed
     
-
 def get_hash(x):
     x = [str(_) for _ in x]
     return '-'.join(x)
 
 class CFEnhancedLogitsProcessor(LogitsProcessor):
-
     def __init__(
         self,
         tokenizer,
@@ -111,7 +104,6 @@ class CFEnhancedLogitsProcessor(LogitsProcessor):
         self.cf_dict = cf_dict
         self.count=0
 
-    
     @add_start_docstrings(LOGITS_PROCESSOR_INPUTS_DOCSTRING)
     def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor) -> torch.FloatTensor:
         scores = torch.nn.functional.log_softmax(scores, dim=-1)
@@ -126,11 +118,9 @@ class CFEnhancedLogitsProcessor(LogitsProcessor):
                     hash_key=sent[-self.count:]
                 hash_key = hash_key.tolist()
                 prefix_allowed_tokens = self._prefix_allowed_tokens_fn(batch_id, hash_key)
-
                 if len(prefix_allowed_tokens) == 0:
                     continue 
                 mask[batch_id * self._num_beams + beam_id, prefix_allowed_tokens] = 0
-
                 temp = []
                 if self.cf_logits is not None:
                     # print(self.cf_logits)
@@ -143,7 +133,6 @@ class CFEnhancedLogitsProcessor(LogitsProcessor):
                             hash_value = self.cf_dict[get_hash(cf_key)]
                         else:
                             continue
-                        
                         sublogits = self.cf_logits[hash_value]
                         temp.append(sublogits.sum() + 1e-20) # max or sum
                     temp = torch.tensor(temp)
@@ -152,12 +141,9 @@ class CFEnhancedLogitsProcessor(LogitsProcessor):
         cf_score = torch.log(cf_score)
         cf_score = cf_score + mask
         self.count += 1
-
         if self.guidance_scale == 1:
             scores = scores + mask
             return scores
-        
         scores = scores + mask
         out = self.guidance_scale * (scores - cf_score) + cf_score
-    
         return out
