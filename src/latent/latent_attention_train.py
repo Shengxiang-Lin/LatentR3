@@ -26,7 +26,6 @@ def train(
     seed: int = 0,
     # attention hyper parameters
     end_k: int = -1,
-    
     # training hyperparams
     batch_size: int = 128,
     micro_batch_size: int = 1,
@@ -36,16 +35,12 @@ def train(
     # llm hyperparams
     train_on_inputs: bool = True,  # if False, masks out inputs in loss
     group_by_length: bool = False,  # faster, but produces an odd training loss curve
-
     resume_from_checkpoint: str = None,  # either training checkpoint or final adapter
-    
     local_rank: int = 0,
     deepspeed: str ="./deepspeed.json",
     category: str="CDs_and_Vinyl",
     K: int = 0
-
 ):
-
     category_dict = {"Office_Products": "office products", "Books": "books", "steam": "games", "CDs_and_Vinyl": "musics", "Toys_and_Games": "toys and games", "Video_Games": "video games", "Musical_Instruments": "music instruments", "Sports_and_Outdoors": "sports and outdoors", "Pet_Supplies": "pet supplies", "Arts_Crafts_and_Sewing": "arts products", "Movies": "movie", "yelp": "resturant"}
     print(category)
     category = category_dict[category]
@@ -53,14 +48,12 @@ def train(
         base_model
     )
     gradient_accumulation_steps = batch_size // micro_batch_size
-    
     device_map = "auto"
     world_size = int(os.environ.get("WORLD_SIZE", 1))
     ddp = world_size != 1
     if ddp:
         device_map = {"": int(os.environ.get("LOCAL_RANK") or 0)}
         gradient_accumulation_steps = gradient_accumulation_steps // world_size
-
     model = LatentModel.from_pretrained(
         base_model,
         # load_in_8bit=True,
@@ -69,12 +62,10 @@ def train(
     )
     model.attention.end_k = end_k
     model.config.loss_type = "ce"
-    
     ##############################################################################
     ##################                                 
     ##################   add a special token here to represent latent thought
     ##################
-
     tokenizer = AutoTokenizer.from_pretrained(base_model, trust_remote_code=True)
     additional_special_tokens = tokenizer.additional_special_tokens
     print("Additional special tokens:", tokenizer.additional_special_tokens)
@@ -84,15 +75,11 @@ def train(
     print("Additional special tokens:", tokenizer.additional_special_tokens)
     model.resize_token_embeddings(len(tokenizer))
     assert tokenizer("<|Thought|>")['input_ids'][0] == len(tokenizer) - 1
-    
     ##################
     ##############################################################################
-
     train_data = LatentRDataset(train_file=train_file, tokenizer=tokenizer, max_len=cutoff_len,  sample=sample, seed=seed, category=category, K = K)
     val_data = LatentRDataset(train_file=eval_file, tokenizer=tokenizer, max_len=cutoff_len,  sample=sample, category=category, K = K)
-
     print("LOAD DATA FINISHED")
-
     if resume_from_checkpoint:
         # Check the available weights and load them
         checkpoint_name = os.path.join(
@@ -138,12 +125,9 @@ def train(
         callbacks = [EarlyStoppingCallback(early_stopping_patience=1)],
     )
     model.config.use_cache = False
-
     trainer.train(resume_from_checkpoint=resume_from_checkpoint)
-
     model.save_pretrained(output_dir)
     tokenizer.save_pretrained(output_dir)
-
 
 if __name__ == "__main__":
     fire.Fire(train)

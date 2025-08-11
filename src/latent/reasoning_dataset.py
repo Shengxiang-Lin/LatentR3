@@ -67,7 +67,6 @@ class LatentRDataset(Dataset):
     def __len__(self):
         return len(self.data)
 
-
     def generate_example_prompt(self, data_point):
         return f"""### Example {data_point["idx"]}:
 {data_point["input"]} 
@@ -82,7 +81,6 @@ class LatentRDataset(Dataset):
 
 ### Response: 
 {data_point["output"]}"""
-
 
     def get_history(self, row):
         row['history_item_title'] = eval(row['history_item_title'])
