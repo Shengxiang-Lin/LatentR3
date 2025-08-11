@@ -5,7 +5,6 @@ import numpy as np
 import torch
 from transformers.utils import add_start_docstrings
 
-
 def get_hash(x):
     x = [str(_) for _ in x]
     return '-'.join(x)
