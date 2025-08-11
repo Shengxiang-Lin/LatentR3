@@ -34,12 +34,9 @@ def main(
     category_dict = {"Office_Products": "office products", "Books": "books", "steam": "games", "CDs_and_Vinyl": "musics", "Toys_and_Games": "toys and games", "Video_Games": "video games", "Musical_Instruments": "music instruments", "Sports_and_Outdoors": "sports and outdoors", "Pet_Supplies": "pet supplies", "Arts_Crafts_and_Sewing": "arts products", "STEAM": "games", "Movies": "movie",
                      "yelp": "resturant" }
     category = category_dict[category]
-
     model = LatentModel.from_pretrained(base_model, torch_dtype=torch.bfloat16, use_flash_attention_2=False)
     model.attention.end_k = end_k
-
     tokenizer = AutoTokenizer.from_pretrained(base_model)
-
     hash_dict = get_prefix_data(info_file, tokenizer)
     
     def prefix_allowed_tokens_fn(batch_id, input_ids):
@@ -52,14 +49,11 @@ def main(
     tokenizer.pad_token_id = tokenizer.eos_token_id
     tokenizer.padding_side = "left"
     val_dataset=LatentRDataset(train_file=test_data_path, tokenizer=tokenizer,max_len=2560, category=category, test=True,K=4, seed=seed,
-                              sample=sample)
-        
+                              sample=sample) 
     encodings = [val_dataset.__getitem__(i) for i in range(len(val_dataset))]
     test_data = val_dataset.get_all()
-
     model.config.pad_token_id = model.config.eos_token_id = tokenizer.eos_token_id
     model.config.bos_token_id = tokenizer.bos_token_id
-
     model.eval()
 
     def evaluate(
@@ -74,14 +68,11 @@ def main(
     ):
         maxLen = max([len(_["input_ids"]) for _ in encodings])
         minLen = min([len(_["input_ids"]) for _ in encodings])
-
         padding_encodings = {"input_ids": [], "attention_mask": []}
-
         for  _ in encodings:
             L = len(_["input_ids"])
             padding_encodings["input_ids"].append([tokenizer.pad_token_id] * (maxLen - L) + _["input_ids"])
             padding_encodings["attention_mask"].append([0] * (maxLen - L) + _["attention_mask"])
-
         
         generation_config = GenerationConfig(
             num_beams=num_beams,
@@ -129,9 +120,7 @@ def main(
         real_outputs = [output[i * num_beams: (i + 1) * num_beams] for i in range(len(output) // num_beams)]
         real_scores = [scores[i * num_beams: (i + 1) * num_beams] for i in range(len(scores) // num_beams)]
         return real_outputs, real_scores, None
-    
     model = model.to(device)
-
     from tqdm import tqdm
     outputs = []
     new_encodings = []
@@ -148,16 +137,13 @@ def main(
         outputs = outputs + output
         scores = scores + score
         seq_scores.append(seq_score)
-    
     for i, test in enumerate(test_data):
         test["predict"] = outputs[i]
         test["predict_score"] = scores[i]
         # test["predict_seq_score"] = seq_scores[i]
-
     for i in range(len(test_data)):
         if 'dedup' in test_data[i]:
             test_data[i].pop('dedup')  
-    
     with open(result_json_data, 'w') as f:
         json.dump(test_data, f, indent=4)
 

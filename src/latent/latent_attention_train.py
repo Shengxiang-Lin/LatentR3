@@ -4,7 +4,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, current_dir)
 import fire
 import torch
-
+import pandas as pd
 import transformers
 from transformers import (
     AutoTokenizer,
@@ -78,7 +78,7 @@ def train(
     ##################
     ##############################################################################
     train_data = LatentRDataset(train_file=train_file, tokenizer=tokenizer, max_len=cutoff_len,  sample=sample, seed=seed, category=category, K = K)
-    val_data = LatentRDataset(train_file=eval_file, tokenizer=tokenizer, max_len=cutoff_len,  sample=sample, category=category, K = K)
+    val_data = LatentRDataset(train_file=eval_file, tokenizer=tokenizer, max_len=cutoff_len,  sample=min(sample, len(pd.read_csv(eval_file))), category=category, K = K)
     print("LOAD DATA FINISHED")
     if resume_from_checkpoint:
         # Check the available weights and load them
