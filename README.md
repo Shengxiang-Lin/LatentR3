@@ -54,3 +54,13 @@ You can tune more hyperparameters to get more impressive results.
 > **Note:**
 > - Results may vary across different devices even with the same hyperparameters, due to differences in computation precision. We conduct our experiments using 2 NVIDIA A100 GPUs.
 
+
+CDs_and_Vinyl
+1024
+[0.00830078 0.00934127 0.01032854 0.0128167  0.0128167 ]
+[0.00830078 0.01025391 0.01269531 0.02050781 0.02050781]
+
+
+-1
+[0.04823778 0.05821069 0.06249525 0.06734953 0.06734953]
+[0.04823778 0.06529154 0.07568621 0.09046614 0.09046614]

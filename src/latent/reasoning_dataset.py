@@ -18,7 +18,6 @@ class Tokenizer:
         self.bos_id: int = self.tokenizer.bos_token_id
         self.eos_id: int = self.tokenizer.eos_token_id
 
-
     def encode(self, s: str, bos: bool, eos: bool) -> List[int]:
         assert type(s) is str
         t = self.tokenizer.encode(s)
@@ -109,30 +108,22 @@ class LatentRDataset(Dataset):
 {self.instructs[0]}
 """
         tokens = self.tokenizer.encode(instruction, bos=True, eos=False)
-
         history = self.get_history(self.data.iloc[idx])
         target_item = history['output']
         history['output'] = ''
-
         prompt = self.generate_prompt(history)
         tokens = tokens + self.tokenizer.encode(prompt, bos=False, eos=False)
         history["input"] = ""
-
         # add thought ids
         tokens = tokens + self.tokenizer.encode("<|Thought|>", bos=False, eos=False)
-
         attention_mask = [1] * len(tokens)
-        
         
         if self.test:
             return {
                 "input_ids": tokens,
                 "attention_mask": attention_mask,
-                
                 # "select_index": select_index,
             }
-
-
         # add target items
         golden_tokens = self.tokenizer.encode(target_item, bos=False, eos=True)
         input_prompt_len = len(tokens)
@@ -142,13 +133,11 @@ class LatentRDataset(Dataset):
         
         if len(tokens) >= self.max_len:
             print(len(tokens))
-        
-        
+          
         return {
             "input_ids": tokens[-self.max_len:],
             "attention_mask": attention_mask[-self.max_len:],
             "labels": labels[-self.max_len:],
-            
         }
     
 
