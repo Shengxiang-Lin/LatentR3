@@ -13,7 +13,6 @@ def get_hash(x):
     x = [str(_) for _ in x]
     return '-'.join(x)
 
-
 def get_prefix_data(info_file, tokenizer):
     with open(info_file, 'r') as f:
         info = f.readlines()
@@ -42,8 +41,6 @@ def get_prefix_data(info_file, tokenizer):
         hash_dict[key] = list(hash_dict[key])
     return hash_dict
 
-
-
 class Tokenizer:
     def __init__(self, tokenizer):
         self.tokenizer = tokenizer
@@ -57,7 +54,6 @@ class Tokenizer:
             t = t[1:]
         while t[-1] == self.eos_id:
             t = t[:-1]
-
         if bos and self.bos_id is not None:
             t = [self.bos_id] + t
         if eos and self.eos_id is not None:
@@ -67,13 +63,11 @@ class Tokenizer:
     def decode(self, t: List[int]) -> str:
         return self.tokenizer.decode(t)
 
-
 class D3Dataset(Dataset):
     def __init__(self, train_file, tokenizer, max_len=2048, sample=-1, test=False, seed=0, category="", K=4,
                  dedup=False):
         self.data = pd.read_csv(train_file)
         random.seed(seed)
-
         if sample > 0:
             self.data = self.data.sample(sample, random_state=seed)
         self.tokenizer = Tokenizer(tokenizer)
@@ -134,14 +128,12 @@ class D3Dataset(Dataset):
         target_item = history['output']
         history['output'] = ''
         negative_prompt_ids = copy.deepcopy(tokens)
-
         prompt = self.generate_prompt(history)
         tokens = tokens + self.tokenizer.encode(prompt, bos=False, eos=False)
         history["input"] = ""
         thought_idx = len(tokens)
         tokens = tokens + self.tokenizer.encode("<|Thought|>",bos=False,eos=False)
         attention_mask = len(tokens) * [1]
-
         if self.test:
             return {
                 "input_ids": tokens,
@@ -149,16 +141,13 @@ class D3Dataset(Dataset):
                 "target": target_item,
                 # "select_index": select_index,
             }
-
         golden_tokens = self.tokenizer.encode(target_item, bos=False, eos=True)
         input_prompt_len = len(tokens)
         tokens = tokens + golden_tokens
         attention_mask = [1] * len(tokens)
         labels = [-100] * input_prompt_len + tokens[input_prompt_len:]
-
         if len(tokens) >= self.max_len:
             print(len(tokens))
-
         return {
             "input_ids": tokens[-self.max_len:],
             "attention_mask": attention_mask[-self.max_len:],
@@ -170,7 +159,6 @@ class D3Dataset(Dataset):
         for i in tqdm(range(len(self.data))):
             inputs.append(self.pre(i))
             # print(inputs[-1])
-
         self.inputs = inputs
 
     def get_all(self):
@@ -184,4 +172,3 @@ class D3Dataset(Dataset):
 
     def __getitem__(self, idx):
         return self.inputs[idx]
-

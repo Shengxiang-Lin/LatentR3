@@ -26,14 +26,13 @@ def main(
         result_json_data: str = "temp.json",
         batch_size: int = 8,
         end_k: int = -1,
-        sample: int = -1,
+        sample: int = 1024,
         K: int = 0,
         seed: int = 42,
         temperature: float = 1.0,
         guidance_scale: float = 1.0,
         length_penalty: float = 1.0
 ):
-
     category_dict = {"Office_Products": "office products", "Books": "books", "steam": "games",
                      "CDs_and_Vinyl": "musics", "Toys_and_Games": "toys and games", "Video_Games": "video games",
                      "Musical_Instruments": "music instruments", "Sports_and_Outdoors": "sports and outdoors",
@@ -47,7 +46,6 @@ def main(
     tokenizer.pad_token = tokenizer.eos_token
     tokenizer.pad_token_id = tokenizer.eos_token_id
     tokenizer.padding_side = "left"
-
     hash_dict = get_prefix_data(info_file, tokenizer)
 
     def prefix_allowed_tokens_fn(batch_id, input_ids):
@@ -59,13 +57,10 @@ def main(
     val_dataset = D3Dataset(train_file=test_data_path, tokenizer=tokenizer, max_len=2560, category=category,
                                 test=True, K=K, seed=seed,
                                 sample=sample)
-
     encodings = [val_dataset.__getitem__(i) for i in range(len(val_dataset))]
     test_data = val_dataset.get_all()
-
     model.config.pad_token_id = model.config.eos_token_id = tokenizer.eos_token_id
     model.config.bos_token_id = tokenizer.bos_token_id
-
     model.eval()
 
     def evaluate(
@@ -80,13 +75,11 @@ def main(
     ):
         maxLen = max([len(_["input_ids"]) for _ in encodings])
         minLen = min([len(_["input_ids"]) for _ in encodings])
-
         padding_encodings = {"input_ids": [], "attention_mask": []}
         for _ in encodings:
             L = len(_["input_ids"])
             padding_encodings["input_ids"].append([tokenizer.pad_token_id] * (maxLen - L) + _["input_ids"])
             padding_encodings["attention_mask"].append([0] * (maxLen - L) + _["attention_mask"])
-
         generation_config = GenerationConfig(
             num_beams=num_beams,
             length_penalty=length_penalty,
@@ -108,7 +101,6 @@ def main(
                 num_beams=num_beams
             )
             logits_processor = LogitsProcessorList([TemperatureLogitsWarper(temperature=temperature), ccc])
-
             generation_output = model.generate(
                 torch.tensor(padding_encodings["input_ids"]).to(device),
                 # inputs_embeds=input_embs,
@@ -118,7 +110,6 @@ def main(
                 logits_processor=logits_processor,
                 attention_mask=torch.tensor(padding_encodings["attention_mask"]).to(device),
             )
-
         s = generation_output.sequences[:, minLen:]
         sequence_scores = [[0 for i in range(len(generation_output.scores))] for _ in range(num_beams)]
         L=minLen
@@ -143,7 +134,6 @@ def main(
     BLOCK = (len(encodings) + batch_size - 1) // batch_size
     for i in range(BLOCK):
         new_encodings.append(encodings[i * batch_size: (i + 1) * batch_size])
-
     scores = []
     seq_scores = []
     for idx, encodings in enumerate(tqdm(new_encodings)):
@@ -155,20 +145,14 @@ def main(
         outputs = outputs + output
         scores = scores + score
         # seq_scores.append(seq_score)
-
     for i, test in enumerate(test_data):
         test["predict"] = outputs[i]
         test["predict_score"] = scores[i]
-
     for i in range(len(test_data)):
         if 'dedup' in test_data[i]:
             test_data[i].pop('dedup')
-
     with open(result_json_data, 'w') as f:
         json.dump(test_data, f, indent=4)
 
-
 if __name__ == '__main__':
     fire.Fire(main)
-
-
