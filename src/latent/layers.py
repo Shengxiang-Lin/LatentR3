@@ -6,7 +6,6 @@ from transformers.modeling_outputs import CausalLMOutputWithPast
 from transformers import Qwen2ForCausalLM
 from transformers.models.qwen2.modeling_qwen2 import apply_rotary_pos_emb
 
-
 class VanillaRoPE(nn.Module):
     def __init__(self, hidden_size, device=None):
         super(VanillaRoPE, self).__init__()

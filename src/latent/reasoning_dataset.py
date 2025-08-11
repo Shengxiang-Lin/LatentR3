@@ -10,8 +10,6 @@ import os
 import copy
 import multiprocessing
 
-
-
 class Tokenizer:
     def __init__(self, tokenizer):
         self.tokenizer = tokenizer
@@ -25,7 +23,6 @@ class Tokenizer:
             t = t[1:]
         while t[-1] == self.eos_id:
             t = t[:-1]
-
         if bos and self.bos_id is not None:
             t = [self.bos_id] + t
         if eos and self.eos_id is not None:
@@ -34,13 +31,11 @@ class Tokenizer:
 
     def decode(self, t: List[int]) -> str:
         return self.tokenizer.decode(t)
-
     
 class LatentRDataset(Dataset):
     def __init__(self, train_file, tokenizer, max_len=2048, sample=-1, test = False, seed=0, category="", K=4, dedup=False):
         self.data = pd.read_csv(train_file)
         random.seed(seed)
-        
         if sample > 0:
             self.data = self.data.sample(sample, random_state=seed)
         self.tokenizer = Tokenizer(tokenizer)
@@ -115,7 +110,6 @@ class LatentRDataset(Dataset):
         # add thought ids
         tokens = tokens + self.tokenizer.encode("<|Thought|>", bos=False, eos=False)
         attention_mask = [1] * len(tokens)
-        
         if self.test:
             return {
                 "input_ids": tokens,
@@ -128,17 +122,14 @@ class LatentRDataset(Dataset):
         tokens = tokens + golden_tokens
         attention_mask = [1] * len(tokens)
         labels = [-100] * input_prompt_len + tokens[input_prompt_len:]
-        
         if len(tokens) >= self.max_len:
             print(len(tokens))
-          
         return {
             "input_ids": tokens[-self.max_len:],
             "attention_mask": attention_mask[-self.max_len:],
             "labels": labels[-self.max_len:],
         }
     
-
     def get_inputs(self):
         inputs = []
         for i in tqdm(range(len(self.data))):
@@ -152,7 +143,6 @@ class LatentRDataset(Dataset):
             inputs = list(tqdm(pool.imap(self.pre, range(len(self.data)//2)), total=len(self.data)))
         
         self.inputs = inputs
-    
     
     def get_all(self):
         temp = []
