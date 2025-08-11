@@ -6,15 +6,12 @@ sys.path.insert(0, current_dir)
 import fire
 import torch
 import torch.nn as nn
-
 import trl
 from datasets import Dataset as HFDataset
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from model import LatentModel
-
 from latent_grpo_dataset import D3Dataset, get_hash, get_prefix_data
 from grpo_trainer import NoiseGRPORecTrainer
-
 
 def train(
     # model/data params, first is your latent model path (train from latent reasoning)
@@ -32,20 +29,16 @@ def train(
     cutoff_len: int = 512,
     output_dir: str = "output_dir/Video_Games/grpo_test",
     category: str = "Toys_and_Games", # category name
-
     num_generations: int = 8, # grpo args
     beta: float = 0.01, # KL coefficient
     num_iterations: int = 2, # number of iterations
     epsilon: float = 0.2, # clipping value
     epsilon_high: float = 0.28, # 其实这两个一个是high，一个是low. 当没有high的时候，low就是high
     max_completion_length: int = 256,
-
     use_vllm: bool = False,
     vllm_gpu_memory_utilization: float = 0.7,
-
     resume_from_checkpoint: str = None,
     local_rank: int = 0,
-
 ):
     # print(train_file)
     category_dict = {"Office_Products": "office products", "Books": "books", "steam": "games",
@@ -63,9 +56,7 @@ def train(
     ddp = world_size != 1
     if ddp:
         gradient_accumulation_steps = gradient_accumulation_steps // world_size
-
     assert batch_size==micro_batch_size*gradient_accumulation_steps*world_size
-
     model = LatentModel.from_pretrained(base_model,
         torch_dtype=torch.bfloat16,
     )
@@ -79,15 +70,11 @@ def train(
     trainable_params = count_trainable_params(model)
     print(f"Trainable parameters: {trainable_params}")
     # replace_with_noisy_linear(model.attention)
-
     tokenizer = AutoTokenizer.from_pretrained(base_model, trust_remote_code=True)
-
     assert tokenizer("<|Thought|>")['input_ids'][0] == len(tokenizer) - 1
-
     tokenizer.pad_token = tokenizer.eos_token
     tokenizer.pad_token_id = tokenizer.eos_token_id
     tokenizer.padding_side = "left"
-
     hash_dict = get_prefix_data(info_file, tokenizer)
 
     def prefix_allowed_tokens_fn(batch_id, input_ids):
@@ -100,12 +87,9 @@ def train(
                            category=category, test=False)
     val_data = D3Dataset(train_file=eval_file, tokenizer=tokenizer, max_len=cutoff_len, sample=sample, seed=seed,
                          category=category, test=False)
-
     print("LOAD DATA FINISHED")
-
     hf_train_dataset = HFDataset.from_dict({k: [v[k] for v in train_data] for k in train_data[0].keys()})
     hf_val_dataset = HFDataset.from_dict({k: [v[k] for v in val_data] for k in val_data[0].keys()})
-
     #############################
     # Initialize the GRPO trainer
     #############################
@@ -167,7 +151,6 @@ def train(
     checkpoint = None
     if resume_from_checkpoint is not None:
         checkpoint = resume_from_checkpoint
-
     train_result = trainer.train(resume_from_checkpoint=checkpoint)
     metrics = train_result.metrics
     metrics["train_samples"] = len(hf_train_dataset)
@@ -179,6 +162,3 @@ def train(
 
 if __name__ == "__main__":
     fire.Fire(train)
-
-
-
