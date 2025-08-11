@@ -3,7 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from typing import Union, Optional, Tuple
 from transformers.modeling_outputs import CausalLMOutputWithPast
-
 from transformers import Qwen2ForCausalLM
 from transformers.models.qwen2.modeling_qwen2 import apply_rotary_pos_emb
 
@@ -36,7 +35,6 @@ class SelfAttentionLayer(torch.nn.Module):
         # need the end_k states to calculate
         # if set to -1, all of hidden_states needed
         self.end_k = end_k
-
         # 定义Q, K, V的线性变换层
         self.query = nn.Linear(hidden_size, hidden_size)
         self.key = nn.Linear(hidden_size, hidden_size)
@@ -48,7 +46,6 @@ class SelfAttentionLayer(torch.nn.Module):
     def mask_to_weights(attention_mask, thought_id_idx, end_k=-1):
         if thought_id_idx is not None and attention_mask.size(0) != thought_id_idx.size(0):
             raise ValueError("attention_mask must have the same size as thought_id_idx")
-
         if end_k != -1:
             # 把thought_id前end_k个位置的内容考虑进去
             # 这里的代码有一点问题：也就是我们认为end_k不会长过前面的句子长度
@@ -69,7 +66,6 @@ class SelfAttentionLayer(torch.nn.Module):
             for i in range(attention_mask.size(0)):
                 idx = thought_id_idx[i].item()
                 attention_mask[i, idx:] = 0
-
         # Convert mask to weights: 1 -> 0, 0 -> -inf
         attention_weight = torch.zeros_like(attention_mask, dtype=torch.float32)
         attention_weight = attention_weight.masked_fill(~attention_mask.bool(), float('-inf'))
@@ -79,22 +75,18 @@ class SelfAttentionLayer(torch.nn.Module):
                 thought_id_idx) -> torch.Tensor:
         # hidden_states = hidden_states.to(torch.float32)
         attention_mask = SelfAttentionLayer.mask_to_weights(attention_mask.clone(), thought_id_idx, self.end_k)
-
         cos, sin = self.rope(
             hidden_states,
             position_ids=torch.arange(0, hidden_states.shape[1], device=hidden_states.device).unsqueeze(0)
         )
 
         batch_size, seq_len, _ = hidden_states.shape
-
         # 生成Q, K, V
         Q = self.query(hidden_states)  # [batch_size, seq_len, embed_dim]
         K = self.key(hidden_states)
         V = self.value(hidden_states)
-
         # 加入位置编码
         Q, K = apply_rotary_pos_emb(Q, K, cos.squeeze(0), sin.squeeze(0), unsqueeze_dim=0)
-
         # 确定目标位置索引
         if thought_id_idx is None:
             # 取每个样本的最后一个位置（seq_len - 1）
@@ -103,22 +95,17 @@ class SelfAttentionLayer(torch.nn.Module):
             indices = thought_id_idx - 1
             if (indices < 0).any() or (indices >= seq_len).any():
                 raise ValueError("thought_id_idx-1 exceeds valid sequence indices")
-
         # 提取目标位置的Q向量 [batch_size, 1, embed_dim]
         Q_selected = Q[torch.arange(batch_size), indices].unsqueeze(1)
-
         # 计算注意力分数 [batch_size, 1, seq_len]
         attn_scores = torch.matmul(Q_selected, K.transpose(-2, -1)) * self.scale_score
-
         # 应用attention_mask（形状需匹配为[batch_size, 1, seq_len]）
         attn_scores += attention_mask.unsqueeze(1)  # 广播至[batch_size, 1, seq_len]
-
         # 计算注意力权重与输出
         attn_weights = F.softmax(attn_scores, dim=-1)
         output_selected = torch.matmul(attn_weights, V)  # [batch_size, 1, embed_dim]
         output = output_selected.squeeze(1) # [batch_size, embed_dim]
         return output
-
 
 class Noise(nn.Module):
     def __init__(self, hidden_size):
@@ -134,7 +121,6 @@ class Noise(nn.Module):
         std = torch.exp(self.log_var / 2)
         return x + torch.randn_like(x).mul(std)
 
-
 class LatentModel(Qwen2ForCausalLM):
 
     def __init__(self, config):
@@ -149,14 +135,11 @@ class LatentModel(Qwen2ForCausalLM):
         where_thought_ids = torch.nonzero(input_ids == thought_ids)
         hidden_states = output_mid['hidden_states']
         input_embs = self.model.embed_tokens(input_ids)
-
         input_embs[where_thought_ids[:, 0], where_thought_ids[:, 1]] = self.attention(
             hidden_states=hidden_states[-1], attention_mask=attention_mask,
             thought_id_idx=where_thought_ids[:, 1],
         ).to(input_embs.dtype)
-
         return input_embs
-
 
     def forward(
         self,
@@ -194,6 +177,3 @@ class LatentModel(Qwen2ForCausalLM):
             num_logits_to_keep=num_logits_to_keep,
             **kwargs,
         )
-
-
-
